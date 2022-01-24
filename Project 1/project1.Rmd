@@ -1,0 +1,549 @@
+---
+title: 'ECON 104 Group Project #1'
+author: "Yüksel Polat Akbıyk, Rebecca Zhu, Tori Takeshita, Crystal Huynh"
+date: "15/04/2021"
+output:
+  pdf_document:
+    extra_dependencies:
+      enumerate: null
+  html_document:
+    df_print: paged
+---
+
+
+```{r setup_hw3, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE, 
+                      message = FALSE, 
+                      warning = FALSE,
+                      tidy.opts=list(width.cutoff=60),
+                      tidy=TRUE
+                      )
+options(scipen=50)
+options(tinytex.verbose = TRUE)
+```
+
+```{r libraries, echo=FALSE, warning=FALSE, message=FALSE}
+rm(list=ls(all=TRUE))
+library(tm)
+library(SnowballC)
+library(lda)
+library(topicmodels)
+library(LDAvis)
+library(dplyr)
+library(stringi)
+library(plyr)
+library(foreign)
+library(xts)
+library(tis)
+library(jsonlite)
+library(FNN)
+library(hexbin)
+library(RColorBrewer)
+library(MASS)
+library(ldatuning)
+library(gofastr)
+library(quantmod)
+library(tseries)
+library(foreign)
+library(forecast)
+library(MASS)
+library(TTR)
+library(vars)
+library(readtext) 
+library(tidyr) 
+library(scales)
+library(tinytex)
+library(fitdistrplus)
+library(rgl)
+library(nhstplot)
+library(stargazer)
+library(ggplot2)
+library(car)
+library(knitr)
+```
+
+
+# Question 1 
+
+*Provide a descriptive analysis of your variables. This should include histograms and fitted distributions, correlation plot, boxplots, scatterplots, and statistical summaries (e.g., the five-number summary). All figures must include comments.*
+
+
+**Danceability:** Danceability describes how suitable a track is for dancing based on a combination of musical elements including tempo, rhythm stability, beat strength, and overall regularity. A value of 0.0 is least danceable and 1.0 is most danceable. e are predicting the dancebility of a song given the following variables:
+
+
+**Energy:** Energy is a measure from 0.0 to 1.0 and represents a perceptual measure of intensity and activity. Typically, energetic tracks feel fast, loud, and noisy. For example, death metal has high energy, while a Bach prelude scores low on the scale. Perceptual features contributing to this attribute include dynamic range, perceived loudness, timbre, onset rate, and general entropy. (Float)
+
+**Key:** The key the track is in. Integers map to pitches using standard Pitch Class notation . E.g. 0 = C, 1 = C sharp, 2 = D, and so on. (Integer)
+
+**Loudness:** The overall loudness of a track in decibels (dB). Loudness values are averaged across the entire track and are useful for comparing relative loudness of tracks. Loudness is the quality of a sound that is the primary psychological correlate of physical strength (amplitude). Values typical range between -60 and 0 db. (Float)
+
+**Mode:** Mode indicates the modality (major or minor) of a track, the type of scale from which its melodic content is derived. Major is represented by 1 and minor is 0. (Integer)
+
+**Speechiness:** Speechiness detects the presence of spoken words in a track. The more exclusively speech-like the recording (e.g. talk show, audio book, poetry), the closer to 1.0 the attribute value. Values above 0.66 describe tracks that are probably made entirely of spoken words. Values between 0.33 and 0.66 describe tracks that may contain both music and speech, either in sections or layered, including such cases as rap music. Values below 0.33 most likely represent music and other non-speech-like tracks. (Float)
+
+
+**Acousticness:** A confidence measure from 0.0 to 1.0 of whether the track is acoustic. 1.0 represents high confidence the track is acoustic. (Float)
+
+
+**Instrumentalness:** Predicts whether a track contains no vocals. “Ooh” and “aah” sounds are treated as instrumental in this context. Rap or spoken word tracks are clearly “vocal”. The closer the instrumentalness value is to 1.0, the greater likelihood the track contains no vocal content. Values above 0.5 are intended to represent instrumental tracks, but confidence is higher as the value approaches 1.0. (Float)
+
+**Liveness:** Detects the presence of an audience in the recording. Higher liveness values represent an increased probability that the track was performed live. A value above 0.8 provides strong likelihood that the track is live. (Float)
+
+**Valence:** A measure from 0.0 to 1.0 describing the musical positiveness conveyed by a track. Tracks with high valence sound more positive (e.g. happy, cheerful, euphoric), while tracks with low valence sound more negative (e.g. sad, depressed, angry). (Float)
+
+
+**Tempo:** The overall estimated tempo of a track in beats per minute (BPM). In musical terminology, tempo is the speed or pace of a given piece and derives directly from the average beat duration. (Float)
+
+
+**Duration:** The duration of the track in milliseconds. (Integer)
+
+
+
+
+
+
+```{r 1}
+
+
+library(broom)
+genres <- read.csv(file = 'genres_v2.csv')
+# take a random sample of size 1200 from a dataset gernes without replacement
+set.seed(1)
+genres2 <- genres[sample(1:nrow(genres), 1200, replace=FALSE),]
+attach(genres2)
+library(corrplot)
+
+library(dplyr)
+
+
+#load the data
+genres <- read.csv(file = 'genres_v2.csv')
+names <- names(genres)
+names
+
+
+# Histogram *
+# Fitted Distribution
+# Correlation Plot *
+# Box Plot *
+# Scatter Plot * 
+# Statistical Summary
+
+
+
+# Corrplot
+corrplot(cor(genres2[, c("danceability", "energy", "key", "loudness", "mode", 
+                         "speechiness", "acousticness", "instrumentalness", 
+                         "liveness", "valence", "tempo", "duration_ms")] ))
+
+
+name <-"Danceability"
+dance <- "Dancebility"
+hist(danceability, main=name, prob=TRUE)
+lines(density(danceability), lwd = 2, col = "chocolate3")
+Boxplot(~danceability)
+summary(danceability)
+
+
+
+
+
+name <- "Energy"
+hist(energy, main =name, prob=TRUE)
+lines(density(energy), lwd = 2, col = "skyblue")
+Boxplot(~energy)
+scatterplot(danceability ~energy, lwd=3, id=TRUE)
+summary(energy)
+
+
+
+name <- "Key"
+hist(key, main = name, prob=TRUE)
+lines(density(key), lwd = 2, col = "darkolivegreen3")
+Boxplot(~key)
+scatterplot(danceability ~key, lwd=3, id=TRUE)
+summary(key)
+
+
+
+name <- "Loudness"
+hist(loudness, main = name, prob = TRUE)
+lines(density(loudness), lwd = 2, col = "springgreen")
+Boxplot(~loudness)
+scatterplot(danceability ~loudness, lwd=3, id=TRUE)
+summary(loudness)
+
+
+
+name <- "Mode"
+hist(mode, main = name, prob = TRUE)
+lines(density(mode), lwd = 2, col = "mediumseagreen")
+Boxplot(~mode)
+plot(danceability ~ mode, lwd=3, id=TRUE) 
+summary(mode)
+
+
+
+name <- "Speechiness"
+hist(speechiness, main = name, prob = TRUE)
+lines(density(speechiness), lwd = 2, col = "seagreen")
+Boxplot(~speechiness)
+scatterplot(danceability ~speechiness, lwd=3, id=TRUE)
+summary(speechiness)
+
+
+
+name <- "Acousticness"
+hist(acousticness, main = name, prob = TRUE)
+lines(density(acousticness), lwd = 2, col = "seagreen1")
+Boxplot(~acousticness)
+scatterplot(danceability ~acousticness, lwd=3, id=TRUE)
+summary(acousticness)
+
+
+
+name <- "Instrumentalness"
+hist(instrumentalness, main = name, prob = TRUE)
+lines(density(instrumentalness), lwd = 2, col = "seagreen2")
+Boxplot(~instrumentalness)
+scatterplot(danceability ~instrumentalness, lwd=3, id=TRUE)
+summary(instrumentalness)
+
+
+
+name <- "Liveness"
+hist(liveness, main = name, prob = TRUE)
+lines(density(liveness), lwd = 2, col = "seagreen3")
+Boxplot(~liveness)
+scatterplot(danceability ~liveness, lwd=3, id=TRUE)
+summary(liveness)
+
+
+
+name <- "Valence"
+hist(valence, main = name, prob = TRUE)
+lines(density(valence), lwd = 2, col = "seagreen4")
+Boxplot(~valence)
+scatterplot(danceability ~valence, lwd=3, id=TRUE)
+summary(valence)
+
+
+
+name <- "Tempo"
+hist(tempo, main = name, prob = TRUE)
+lines(density(tempo), lwd = 2, col = "green")
+Boxplot(~tempo)
+scatterplot(danceability ~tempo, lwd=3, id=TRUE)
+summary(tempo)
+
+
+
+name <- "Duration_ms"
+hist(duration_ms, main = name, prob = TRUE)
+lines(density(duration_ms), lwd = 2, col = "yellowgreen")
+Boxplot(~duration_ms)
+scatterplot(danceability ~duration_ms, lwd=3, id=TRUE)
+summary(duration_ms)
+```
+
+
+# Question 2
+
+*Estimate a multiple linear regression model that includes all the main effects only (i.e., no interactions nor higher order terms). We will use this model as a baseline. Comment on the statistical and economic significance of your estimates. Also, make sure to provide an interpretation of your estimates.*
+
+```{r 2}
+
+reg.mod.2 <- lm(danceability ~ energy + key + loudness + mode + speechiness + 
+                  acousticness + instrumentalness + liveness + valence + 
+                  tempo + duration_ms)  
+summary(reg.mod.2)
+tidy(reg.mod.2)
+
+
+```
+Based on the summary above, everything except "key," "mode," "loudness," and "duration_ms," looks significant at 5% level of significance. 
+
+Holding all other variables constant, one unit increase in energy decreases expected danceability by $0.3359$.
+
+Holding all other variables constant, one unit increase in key increases expected danceability by $0.00038$. 
+
+Holding all other variables constant, one unit increase in loudness increases expected danceability by $0.0018$. 
+
+Holding all other variables constant, one unit increase in mode increases expected danceability by $0.0258$. 
+
+Holding all other variables constant, one unit increase in speechiness increases expected danceability by $0.2219$. 
+
+Holding all other variables constant, one unit increase in acousticness decreases expected danceability by $0.1625$.
+
+Holding all other variables constant, one unit increase in instrumentalness increases expected danceability by $0.04785$. 
+
+Holding all other variables constant, one unit increase in liveness decreases expected danceability by $0.0812$. 
+
+Holding all other variables constant, one unit increase in valence increases expected danceability by $0.2426$. 
+
+Holding all other variables constant, one unit increase in tempo decreases expected danceability by $0.00122$. 
+
+Holding all other variables constant, one millisecond increase in duration increases expected danceability by $0.000000067$. 
+
+None of them are economically significant because our data does not include any economic values. 
+
+
+
+# Question 3
+
+*Identify if there are any outliers, high leverage, and or influential observations worth removing. If so, remove them but justify your reason for doing so and re-estimate your model.*
+
+```{r 3.1}
+
+library(olsrr)
+library(car)
+
+ols_plot_resid_lev(reg.mod.2)
+# leverages
+influenceIndexPlot(reg.mod.2, id=list(n=5), vars="hat", main="Hat Values") 
+# outliers
+influenceIndexPlot(reg.mod.2, id=list(n=5), vars="Bonf", main="Bonf Values") 
+# influential
+influenceIndexPlot(reg.mod.2, id=list(n=5), vars="cook", main="Cook Values") 
+#all
+influenceIndexPlot(reg.mod.2, id=list(n=5))
+
+
+```
+
+Based on the plots above, observations 50, 518, 530, 576 have high leverages.
+
+Based on the plots above, observations 91 and 555 are outliers.
+
+Based on the first plots above, observation 334, 600, 645, 722, and 925 are influential points.
+
+Given that there are many leverage, outlier, and influential points, we are taking out the 5 most significant values (some of the values overlap). 
+
+
+```{r 3.2}
+# Do again without the leverages, outliers, influential points 
+
+reg.mod.3 <- lm(danceability ~ energy + key + loudness + mode + speechiness + 
+                  acousticness + instrumentalness + liveness + valence + tempo 
+                + duration_ms, subset= c(-50, -518, -530, -576, -91, -555, 
+                                         -334, -645, -600, -722, -925))
+summary(reg.mod.3)
+summary(reg.mod.2)
+
+```
+
+After removing the 11 points we listed above, our adjusted $R^2$ value improved from  0.2971 to .3155 (our $R^2$ values also improved, but adjusted takes into account multiple predictors.) The standard errors, as a whole, are smaller for reg.mod3, and the predictors are more statistically signifcant. 
+
+
+# Question 4
+
+*Use Mallows Cp for identifying which terms you will keep in the model (based on part 3) and also use the Boruta algorithm for variable selection. Based on the two results, determine which subset of predictors you will keep.*
+
+```{r 4CP_Mallows}
+
+library(AER)
+library(leaps)
+
+ols_mallows_cp(reg.mod.3, reg.mod.2)
+
+ss = regsubsets(danceability ~ energy + key + loudness + mode + speechiness + 
+                  acousticness + instrumentalness + liveness + valence + tempo 
+                + duration_ms, method = c("exhaustive"), nbest=1, data=genres)
+
+subsets(ss, statistic = "cp", legend = F, main="Mallows CP", col="steelblue4")
+
+
+```
+
+```{r 4Boruta}
+
+library(Boruta)
+
+Bor.res <- Boruta(danceability ~ energy + mode + speechiness + acousticness + 
+                    instrumentalness + liveness + valence + tempo, 
+                  data = genres2, doTrace = 2)
+
+# Best model is: energy + mode + speechiness + acousticness + 
+# instrumentalness + liveness + valence + tempo
+
+plot(Bor.res, xlab = "", xaxt = "n", main="Boruta Algorithm Feature Importance")
+
+lz<-lapply(1:ncol(Bor.res$ImpHistory),function(i)
+Bor.res$ImpHistory[is.finite(Bor.res$ImpHistory[,i]),i])
+names(lz) <- colnames(Bor.res$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+at = 1:ncol(Bor.res$ImpHistory), cex.axis = 0.7)
+
+
+boruta_signif <- names(Bor.res$finalDecision[Bor.res$finalDecision %in% 
+                                               c("Confirmed", "Tentative")])
+boruta_signif_Conf <- names(Bor.res$finalDecision[Bor.res$finalDecision %in% 
+                                                    c("Confirmed")])
+boruta_signif_Tent <- names(Bor.res$finalDecision[Bor.res$finalDecision %in% 
+                                                    c("Tentative")])
+boruta_signif_Reject <- names(Bor.res$finalDecision[Bor.res$finalDecision %in% 
+                                                      c("Rejected")])
+# energy, mode, speechiness, acousticness..
+#..instrumentalness, liveness, valence, tempo 
+print(boruta_signif_Conf)   
+
+print(boruta_signif_Tent) #  character(0)
+
+print(boruta_signif_Reject) # character(0)
+
+# Look at the statistical attributes in terms of 'variable importance'
+# Sort variables by importance (most imp first and least imp last)
+sorted_vars = attStats(Bor.res)[order(-attStats(Bor.res)$meanImp),]
+print(sorted_vars)
+
+
+# Store variables in a variable (e.g., top 5 variables)
+conf_vars = row.names(sorted_vars[1:5,])
+print(conf_vars)
+
+```
+The subset of predictors we will keep, based on the results of the Mallows CP and Boruta functions, include: energy, mode, speechiness, acousticness, instrumentalness, liveness, valence, and tempo. 
+
+We have removed key and loudness from the set of predictors. 
+
+
+# Question 5
+
+*Test for multicollinearity using VIF on the model from (4). Based on the test, remove any appropriate variables, and estimate a new regression model based on these findings.*
+
+```{r 5}
+#from Part 4 --> remove key and loudness
+reg.mod.4 <- lm(danceability ~ energy + mode + speechiness + acousticness + 
+                  instrumentalness + liveness + valence + tempo, subset= c(-50, 
+                    -518, -530, -576, -91, -555, -334, -645, -600, -722, -925))
+
+summary(reg.mod.4)
+tidy(vif(reg.mod.4))
+
+```
+Based on the VIF scores above, since all the CIF values are less than 4, we do not remove any variables. So, there is no need for reestimation. 
+
+
+# Question 6
+
+*For your model in part (5) plot the respective residuals vs. $\hat{y}$ and comment on your results.*
+
+```{r 6}
+
+#NOTE: No need to change the model from part 4. 
+library(latex2exp)
+
+y_hat <- predict(reg.mod.4)
+plot(y_hat, reg.mod.4$residuals, col="blue", ylab = "Residuals", 
+     main=TeX('$\\hat{y}$ vs Residuals'))
+abline(h=0, col="red", lw=3)
+```
+Based on the graph above, there is a slight skewness toward the negative side and to the right, but it almost looks like it is centered around 0. 
+
+
+# Question 7
+*For your model in part (5) perform a RESET test and comment on your results.*
+
+```{r 7}
+
+library(lmtest)
+# Test if a quadratic model is appropriate  --> does not need 
+resettest(reg.mod.4 , power=2, type="regressor")
+
+```
+According to the RESET Test, since we have a very low p-value, we reject the null and therefore we ignore the quadratic model. This means that we do not need a quadratic model, our model is sufficient. 
+
+
+# Question 8
+*For your model in part (5) test for heteroskedasticity and comment on your results. If you identify heteroskedasticy, make sure to account for it before moving on to (9).*
+
+
+**explanation:**
+
+If the errors are homoskedastic, there should be no patterns of any sort in the residuals. On the other hand, if the errors are heteroskedastic, they may tend to exhibit greater variation in some systematic way. We can see it by plotting the residuals either against one of the explanatory variables or against $\hat{y_i}$ to see if they vary in a systematic way. 
+
+```{r 8}
+
+#Plot the Residuals to see if there is heteroskedasticity
+genres3 <- genres2[-c(50, 518, 530, 576, 91, 555, 334, 645, 600, 722, 925), ]
+
+plot(genres3$danceability, reg.mod.4$residuals, xlab="Dancebility", 
+     ylab= "Residuals" , main= "Dancebility vs Residuals", col = "blue")
+abline(h=0, col="red", lw=2)
+
+plot(genres3$energy, reg.mod.4$residuals, xlab="Energy" , ylab= "Residuals" , 
+     main= " Energy vs Residuals", col="green")
+abline(h=0, col="red", lw=2)
+
+plot(genres3$acousticness, reg.mod.4$residuals, xlab="Acousticness" , 
+     ylab= "Residuals", main= "Acousticness vs Dancebility", col = "orange")
+abline(h=0, col="red", lw=2)
+
+plot(genres3$instrumentalness,reg.mod.4$residuals, xlab="Insturmentalness", 
+     ylab="Residuals", main="Instrumentalness vs Residuals", col="pink")
+abline(h=0, col="red", lw=2)
+
+
+spreadLevelPlot(reg.mod.4)
+ncvTest(reg.mod.4) # Reject H0 
+bptest(reg.mod.4) # Reject H0
+
+```
+Looking at the graph of dancebility, energy, acousticness, and instumentalness vs residuals, we can easily see that heteroskedasticity is present. Both the ncvTest abd BP test suggest that we reject the null (because of the low p value), meaning that there is evidence of heteroskedasticity. 
+
+
+# Question 9
+
+*Estimate a model based on all your findings that also includes interaction terms (if appropriate) and if needed, any higher power terms. Comment on the performance of this model compared to your other models. Make sure to use AIC and BIC for model comparison.*
+
+```{r 9}
+# correcting for heteroskedasticity (from part 8): 
+cov1 <- hccm(reg.mod.4, type="hc1") 
+mod.HC1 <- coeftest(reg.mod.4, vcov.=cov1)
+
+mod.HC1 # white standard error model 
+summary(reg.mod.4) # old model
+
+# fgls model 
+ehatsq <- resid(reg.mod.4)^2
+sighatsq.ols <- lm(log(ehatsq)~log(danceability), data=genres3)
+vari <- exp(fitted(sighatsq.ols))
+mod.fgls <- lm(danceability ~ energy + speechiness + acousticness + 
+                 instrumentalness + liveness + valence + tempo, 
+               weights = 1/vari, data = genres3)
+summary(mod.fgls)
+
+AIC(reg.mod.2, reg.mod.3, reg.mod.4, mod.HC1, mod.fgls)
+BIC(reg.mod.2, reg.mod.3, reg.mod.4, mod.HC1, mod.fgls)
+```
+
+Both the AIC and BIC test tells us that the fgls model (which is corrected for heteroskedasticity) is the best because it is the lowest value by a large margin. Comparing the standard errors of the fgls model to the other models (even the model with the white standard errors), we see that it has the smallest standard errors. While reg.mod 2 has predictors that are not all significant, the predictors for mod.fgls are all significant. 
+
+
+
+# Question 10
+
+*Evaluate your model performance (from 9) using cross-validation, and also by dividing your data into the traditional 2/3 training and 1/3 testing samples, to evaluate your out-of-sample performance. Comment on your results.*
+
+```{r 10}
+library(lmvar)
+
+fit= lm(danceability ~ energy + speechiness + acousticness + 
+          instrumentalness + liveness + valence + tempo, 
+        weights = 1/vari, data = genres3, x = TRUE, y = TRUE)
+
+cv.lm(fit, k = 3)
+```
+Based on the output above, $RMSE = 0.13$ which is a little higher than expected since we were aiming for the range between 0.01 and 0.08. 
+
+
+# Question 11
+
+*Provide a short (1 paragraph) summary of your overall conclusions findings.*
+
+&nbsp;
+
+In our initial multiple regression model (reg.mod.2), we found that 3 of the 10 predictor variables were not significant at a 5% level. Following that, we found that 11 data points had leverage, were outliers, or were influential, so we removed those points for our reg.mod.3. Using Mallows CP, Boruta, and VIF tests, we removed the 2 predictor variables of key and loudness for our reg.mod.4. The RESET test told us that we did not need higher order terms. Looking at residual graphs, we can see that heteroskedasticity is present in our model, so we used White standard errors for our final model (mod.HC1) and the FGLS test (mod.fgls). Using AIC and BIC tests to compare our 4 models, we found that "mod.fgls" was the most accurate as it had the lowest AIC and BIC scores at, -1580.949 and -1535.221, respectively. It also had the smallest standard errors. When testing using cross-validation, we found that the RMSE = 0.13, which was slightly higher than expected, but we believe this was still the best model possible.
