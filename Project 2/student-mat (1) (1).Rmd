@@ -1,0 +1,476 @@
+---
+title: "Econ 104 - Project 2"
+author: "Rebecca Zhu, Crystal Huynh, Polat Akbıyk, Tori Takeshita"
+date: "6/2/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# 1. Introduction
+
+For this project, we are analyzing the "Student Alcohol Consumption" dataset found on Kaggle (https://www.kaggle.com/uciml/student-alcohol-consumption). The data were obtained from a survey of 649 students in Portuguese classes. It contains a variety of social, gender, and study attributes about these students.
+
+Our response variable is Talc = Dalc + Walc. Dalc and Walc are the weekday and weekend alcohol consumption of students, each on a scale of 1 (very low) to 5 (very high). 
+
+Our explanatory variables are the following: 
+
+absences
+
+activities
+
+age
+
+famrel
+
+free time
+
+G3 (Grade 3)
+
+health
+
+internet
+
+Pstatus
+
+romantic
+
+sex
+
+studytime
+
+traveltime
+
+&nbsp;
+
+The reason why we selected these variables for our initial model is a combination of quantitaitive reasoning (using correlation plots) and qualitiative reasoning using our own knowledge. 
+
+
+# 2. Description of Data
+Absences indicates the number of school absences (numeric: from 0 to 93)
+
+Activities - extra-curricular activities (binary: '1' - yes or '0' -no)
+
+Age indicates the student's age (numeric: from 15 to 22)
+
+Famrel indicates the quality of family relationships (numeric: from 1 - very bad to 5 - excellent)
+
+Freetime indicates the amount of free time after school (numeric: from 1 - very low to 5 - very high)
+
+G3 indicates the final grade (numeric: from 0 to 20)
+
+Health indicates current health status (numeric: from 1 - very bad to 5 - very good)
+
+Internet indicates the intrnet access at home (binary: '1' - yes or '0' -no)
+
+Pstatus - parent's cohabitation status (binary: '0' - living together or '1' - apart) 
+
+Sex indicates the student's sex (binary: '0'- female or '1' - male)
+
+Romantic indicates students that are in a romantic relationship (binary: '1' - yes or '0' -no)
+
+Studytime indicates weekly study time (numeric: 1 - 10 hours)
+
+Traveltime indicates the home to school travel time (numeric: 1 - 4 hour)
+
+And our response variable is Talc which indicates both workday alcohol consumption and weekend alcohol consumption (numeric: from '2' - very low to '10' - very high)
+
+
+# 3. Data Analysis/Models
+## Testing/correcting for best model
+First we are testing various linear regression models to determine which variables to keep and what model fits best. 
+
+
+Here we are doing a simple linear regression on the explantory variables as our base model. 
+```{r }
+library(broom)
+student <- read.csv(file = 'student-por-cleaned.csv')
+attach(student)
+```
+
+```{r }
+library(corrplot)
+corrplot(cor(student[, c("age", "sex", "activities", "studytime", "traveltime",
+"health", "absences", "freetime",
+"romantic", "famrel", "internet", "G3")] )) 
+```
+There is no significant correlation between any two variables, which is a good sign. The largest correlation is between study time and G3, but is around ~ 0.3. Next, we'll move on to creating the model and testing which variables are significant and should be included in the model (similar to as in Project 1).
+
+```{r}
+mod1 <- lm(Talc~age+sex+activities+studytime+traveltime+health+absences+freetime
+           +romantic+famrel+internet+Pstatus+G3, data=student)
+summary(mod1)
+```
+From what we see in mod1, not all variables are statistically significant and the R squared could be better as it is only 0.19. We will then test the model for outliers, leverages, and influential points to see if we can better the statistical significance and R squared value. 
+
+
+```{r}
+library(olsrr)
+library(car)
+
+ols_plot_resid_lev(mod1)
+
+#leverages
+influenceIndexPlot(mod1, id=list(n=5), vars="hat", main="Hat Values")
+
+# outliers
+influenceIndexPlot(mod1, id=list(n=4), vars="Bonf", main="Bonf Values")
+
+# influential
+influenceIndexPlot(mod1, id=list(n=5), vars="cook", main="Cook Values")
+```
+
+Leverage points: 109, 151, 198, 213, 611
+Outliers: 55, 67, 62, 251
+Influential points: 55, 62, 67, 280, 524
+(3 of the points are within both the top 5 outliers and top 5 influential points).
+```{r}
+# Do again without the leverages, outliers, influential points
+mod2 <- lm(Talc~age+sex+activities+studytime+traveltime+health+absences+freetime
+           +romantic+famrel+internet+Pstatus+G3, data=student, 
+           subset=-c(109, 151, 198, 213, 611, 55, 67, 62, 251, 280, 524))
+summary(mod2)
+```
+Age, studytime, health, and PstatusT got more statistically significant after removing the leverage, outlier, and influential data points. The variables freetime, famrel, and internet are now less statistically significant. As a whole, the model, mod2, is a bit better than mod1 because the R squared value increased from 0.197 to 0.208. 
+
+
+Next we will test what variables should be keep and which should be removed from the model with the Mallows CP test and Boruta Test. 
+```{r}
+library(AER)
+library(leaps)
+ols_mallows_cp(mod2, mod1)
+
+ss = regsubsets(Talc~age+sex+activities+studytime+traveltime+health+absences+
+                  freetime+romantic+famrel+internet+Pstatus+G3, data=student)
+subsets(ss, statistic="cp", legend = F, main="Mallows CP", col="steelblue4")
+```
+The output of Mallows CP tells us that the most significant variables are: age, sex, studytime, absences, freetime, famrel, Pstatus, and G3. This excludes activities, traveltime, health, romantic, and internet.
+
+Next, we will also perform the Boruta test.
+```{r}
+library(Boruta)
+mod.Bor <- Boruta(Talc~age+sex+activities+studytime+traveltime+health+absences+freetime
+                  +romantic+famrel+internet+Pstatus+G3, data=student, doTrace=2)
+plot(mod.Bor, xlab="", xaxt= "n", main="Boruta Algorithm Feature Importance")
+
+lz<-lapply(1:ncol(mod.Bor$ImpHistory),function(i)
+mod.Bor$ImpHistory[is.finite(mod.Bor$ImpHistory[,i]),i])
+names(lz) <- colnames(mod.Bor$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+at = 1:ncol(mod.Bor$ImpHistory), cex.axis = 0.7)
+```
+The output of Boruta corresponds with the Mallows CP test - most of the variables are green, with freetime being yellow.
+
+
+Next, we will create a new model based on the most significant variables (determined by these past few tests)
+```{r}
+mod3 <- lm(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3, 
+           data=student, subset=-c(109, 151, 198, 213, 611, 55, 67, 62, 251, 280, 524))
+summary(mod3)
+```
+Looking at the statistical significance of the variables, we find that the statisitical significance of freetime increased. The others variables have the same statistical significance. However the standard errors of all the variables in mod3 is less than that of mod2 (though my very small amounts ~0.01 to 0.001) However the R squared decreased by ~ 0.02 for mod3, which is not ideal.
+
+
+We will now test for multicollinearity for mod3. 
+```{r}
+# testing for multicollinearity 
+tidy(vif(mod3))
+```
+All of our VIF scores are less than 4, so we do not need to remove any variables.
+
+
+Next, we will test for heteroskedasticity.
+``` {r}
+library(car)
+ncvTest(mod3)
+bptest(mod3)
+```
+The p-value is low for both the NCV test and the BP test, meaning we reject the null hypothesis that there is no heteroskedasticity, and accept the alternative hypothesis that heteroskedasticity is present. Therefore, we must correct for that.
+```{r}
+#correcting heteroskedasticity with white standard errors 
+cov1 <- hccm(mod3, type="hc1")
+mod4 <- coeftest(mod3, vcov.=cov1)
+summary(mod3)
+mod4
+
+#correcting heteroskedasticity with fgls
+student2 <- student[-c(109, 151, 198, 213, 611, 55, 67, 62, 251, 280, 524)]
+ehatsq <- resid(mod3)^2
+sighatsq.ols <- lm(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3, 
+                   data=student2)
+vari <- exp(fitted(sighatsq.ols))
+mod.fgls <- lm(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3, 
+               data=student2, weights = 1/vari)
+summary(mod.fgls)
+```
+
+Now we will use AIC and BIC to test which model is the best fit. 
+```{r}
+AIC(mod1, mod2, mod3, mod4, mod.fgls)
+BIC(mod1, mod2, mod3, mod4, mod.fgls)
+```
+The  best model is mod3 / mod4 as they are the same value. While mod4 is corrected for heteroskedasticity, the difference between the two models is minimal. Thus we will go with mod3 for flexibility as it is a linear model and easier to compare with other (future) models. 
+
+
+We are cross validating the mod4 model to measure the performance of the model. 
+```{r}
+library(lmvar)
+fit= lm(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3, data=student2, 
+        weights = 1/vari, x = TRUE, y = TRUE)
+
+summary(Talc) # give us range of 2-10 
+
+cv.lm(fit, k = 3)
+```
+Given that the RMSE is 1.805 and Talc varies from 2-10, then 1.8/8 is about 22.5%. This means that the model is off by about 22.5%. This is not ideal, given that the range that we would like to be in is 1% to 8%. 
+
+
+## Probit Models 
+Here we are trying to test the probability of a student's gender (male or female). The explanatory variables include: studytime, Talc, and activities.  
+```{r}
+# using corrplot to see what variables are correlated with sex: 
+corrplot(cor(student[, c("age", "sex", "Medu", "Fedu", "failures", "schoolsup", 
+                         "famsup", "paid", "nursery", "higher", "goout", "Talc", 
+                         "health", "activities", "studytime", "traveltime", 
+                         "health", "absences", "freetime", "romantic", "famrel", 
+                         "internet", "G1", "G2", "G3")] )) 
+
+
+#baseline model 
+reg.mod2 <- lm(sex~studytime+Talc, data=student2)
+    # using studytime, Talc, and activities because 
+    #they are the most correlated with sex
+summary(reg.mod2)
+
+# probit model 
+probit.mod2 = glm(sex~studytime+Talc, family=binomial(link="probit"), data=student2)
+summary(probit.mod2)
+
+
+# we created a function to output confusion matrix, sensitivity, specificity, PPV and NPV 
+confusion <- function(model, threshold) {
+  pred.classes <- ifelse(fitted(model) > threshold, 1, 0)
+  table <- table(pred.classes, student2$sex)
+  print(table)
+  cat("Sensitivity: ", table[1]/(table[1] + table[2]), "\n")
+  cat("Specificity: ", table[4]/(table[3] + table[4]), "\n")
+  cat("PPV: ", table[1]/(table[1] + table[3]), "\n")
+  cat("NPV: ", table[4]/(table[2] + table[4]), "\n")
+}
+
+
+# default threshold = 0.5
+confusion(reg.mod2, 0.5)
+confusion(probit.mod2, 0.5)
+
+
+# higher threshold
+confusion(reg.mod2, 0.6)
+confusion(probit.mod2, 0.6)
+
+# lower threshold
+confusion(reg.mod2, 0.4)
+confusion(probit.mod2, 0.4)
+```
+Result of confusion matrices: probit gave slightly higher sensitivity/true negative rate for 0.5, but adjusting up and down had no impact.
+
+
+In reg.mod2 vs. probit.mod2, when using 0.5, probit has a higher sensitivity rating (0.496) than the regular (0.4436).
+
+
+# Logit Models 
+```{r logit}
+#same baseline model
+summary(reg.mod2) 
+
+#logit model 
+logit.mod2 = glm(sex~studytime+Talc, family=binomial(link="logit"), data=student2)
+summary(logit.mod2)
+
+
+
+# default threshold = 0.5
+confusion(reg.mod2, 0.5)
+confusion(logit.mod2, 0.5)
+
+# higher threshold
+confusion(reg.mod2, 0.6)
+confusion(logit.mod2, 0.6)
+
+# lower threshold
+confusion(reg.mod2, 0.4)
+confusion(logit.mod2, 0.4)
+```
+
+
+Here we are comparing the sensitivity, specificity, positive and negative predicited values for the OLS, probit, and logit models. 
+```{r}
+# regular - probit and logit are same, better than OLS for spec/PPV, but worse for sens/NPV
+confusion(reg.mod2, 0.5)
+confusion(probit.mod2, 0.5)
+confusion(logit.mod2, 0.5)
+
+# move up - OLS and probit become the same, logit is better for spec/PPV, worse for sens/NPV
+confusion(reg.mod2, 0.6)
+confusion(probit.mod2, 0.6)
+confusion(logit.mod2, 0.6)
+
+# move down - logit better for everything except specificity
+confusion(reg.mod2, 0.4)
+confusion(probit.mod2, 0.4)
+confusion(logit.mod2, 0.4)
+```
+By comparing the models, we see that there is a variability of results. When comparing the 0.5 thresholds, the probit and logit model have the same results. They are better than the OLS model for specificity and PPV, but not for sensitivity or NPV. However when looking at that a higher threshold, we find that the OLS and probit model have the same results. Logit is better for specificity and PPV but worse for sensitivity and NPV. When we lower the threshold, we find that the logit is better for all the test except for specificity. 
+
+
+
+## Instrumental Variables 
+
+```{r}
+mod.test <- lm(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+failures, 
+               data=student2)
+summary(mod.test)
+
+corrplot(cor(student2[, c("G3", "failures", "higher")] ))
+mod.test2 <- lm(G3~failures+higher, data=student2)
+summary(mod.test2)
+```
+The mod.test2 shows that the variables failure and higher both explain G3, as they are all highly statistically significant. Looking at the R squared, it explains about 20% of G3, which is also evident in the correlation plot. 
+
+
+
+Given the results above, we are going to test failures an higher as an instrumental variable for G3.
+```{r}
+# IV hypothesis #1: failures as IV for G3
+mod.instr1 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |age+sex+studytime+absences+freetime+famrel+Pstatus+failures, 
+                    data=student2)
+summary(mod.instr1)
+
+# IV hypothesis #2: higher as IV for G3
+mod.instr2 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |age+sex+studytime+absences+freetime+famrel+Pstatus+higher, 
+                    data=student2)
+summary(mod.instr2)
+
+
+# IV hypothesis #3: using failures and higher as IVs for G3
+mod.instr3 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 |age+sex+studytime+absences+freetime+famrel+Pstatus+failures+higher, data=student2)
+summary(mod.instr3)
+
+
+
+summary(mod3)
+```
+Though there is some correlation between failure and higher with G3, when using it as an instrumental variable, it decrease the statistical significance of G3. Out of the three models, we found that using higher gave the highest R squared out of the the three options. Howvever the R squared is lower than the mod3 model, which we had deemed best from the various tests above. This is not surprising as the correlation plot revealed little correlation between the variables as a whole.  
+
+
+Here we tested to see if there were any other variables were instrumental variables. We made our hypothesis based on the correlation chart (pictured above) using instrumental variables highly correlated with one of the explanatory variables but not highly correlated with the response variable. Though the models were not as good as the models above (and to the OLS model), we decided to include the work to show our thought process. 
+```{r}
+# IV hypothesis #4: goout as IV for freetime 
+# Really good for increasing significance of freetime, but bad for everything else / R-squared
+mod.instr4 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |age+sex+studytime+absences+goout+famrel+Pstatus+G3, data=student2)
+summary(mod.instr4)
+
+# IV hypothesis #5: higher as IV for age 
+# Really good for increasing significance of freetime, but bad for everything else / R-squared
+mod.instr5 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |higher+ failures +sex+freetime+absences+studytime+famrel+
+                      Pstatus+G3, data=student2)
+summary(mod.instr5)
+
+# IV hypothesis #6: Medu and Fedu as IV for G3 
+# really good for increasing significance of freetime, but bad for everything else / R-squared
+mod.instr6 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |age +sex+studytime+absences+freetime+famrel+Pstatus+Medu + 
+                      Fedu, data=student2)
+summary(mod.instr6)
+
+# IV hypothesis #7: romantic as IV for age 
+# really good for increasing significance of freetime, but bad for everything else / R-squared
+mod.instr7 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    | romantic +sex+studytime+absences+freetime+famrel+Pstatus+G3, 
+                    data=student2)
+summary(mod.instr7)
+
+# IV hypothesis #8:  higher and romantic as IV for age 
+# really good for increasing significance of freetime, but bad for everything else / R-squared
+mod.instr8 <- ivreg(Talc~age+sex+studytime+absences+freetime+famrel+Pstatus+G3 
+                    |higher+ romantic+sex+studytime+absences+freetime+famrel+
+                      Pstatus+G3, data=student2)
+summary(mod.instr8)
+```
+
+
+Given that our previous models still had low predictive ability, we tried a different approach of starting with a model that used all the numerical variable from the data set as explanatory variable. From the new model (mod5), we gradually removed the insignificant variables. However, it was not as good as our best model (mod3), where the R squared was  0.2041 while mod11 was 0.157 and contained many coefficients has high P-values. However, we wanted to include our work to show our attempt at finding a better model. 
+```{r}
+#new model 
+mod.5 <- lm(Dalc~age + sex + Pstatus + Medu + Fedu + traveltime + studytime + 
+              failures + schoolsup + famsup + paid + activities + nursery + higher 
+            + internet + romantic + famrel + freetime + goout + Walc + Talc + 
+              health + absences + G1 + G2 + G3, data=student)
+summary(mod.5)
+
+# remove Medu and Fedu - very insignificant
+mod.6 <- lm(Dalc~age + sex + Pstatus + traveltime + studytime + failures + 
+              schoolsup + famsup + paid + activities + nursery + higher + 
+              internet + romantic + famrel + freetime + goout + Walc + Talc + 
+              health + absences + G1 + G2 + G3, data=student)
+summary(mod.6)
+
+# remove those with P-value above 0.8
+mod.7 <- lm(Dalc~age + sex + Pstatus + traveltime + schoolsup + famsup + paid + 
+              activities + nursery + higher + internet + famrel + freetime + 
+              goout + Walc + Talc + absences + G1 + G2 + G3, data=student)
+summary(mod.7)
+
+# remove G3
+mod.8 <- lm(Dalc~age + sex + Pstatus + traveltime + schoolsup + famsup + paid + 
+              activities + nursery + higher + internet + famrel + freetime + 
+              goout + Walc + Talc + absences + G1 + G2, data=student)
+summary(mod.8)
+
+# remove those with P-value above 0.8 (famrel and paid)
+mod.9 <- lm(Dalc~age + sex + Pstatus + traveltime + schoolsup + famsup + 
+              activities + nursery + higher + internet + freetime + goout + 
+              Walc + Talc + absences + G1 + G2, data=student)
+summary(mod.9)
+
+# remove those with P-value above 0.6
+mod.10 <- lm(Dalc~age + sex + Pstatus + traveltime + schoolsup + famsup + 
+               activities + internet + freetime + goout + Walc + Talc 
+             + G1 + G2, data=student)
+summary(mod.10)
+
+# remove Walc/Talc, activities, internet
+mod.11 <- lm(Dalc~age + sex + Pstatus + traveltime + schoolsup + famsup + 
+               freetime + goout + G1 + G2, data=student)
+summary(mod.11)
+```
+
+# 4. Conclusions
+In this project, we wanted to predicted the probability that the sex of a student is male and the total weekly alcohol consumption. To test the probability that the sex of a student is male, we created probit and logit models. Our conclusion when comparing these models was that there was no one best model. Rather it depends on the preference of the study in regard to the predictions. If the researchers would prefer higher specificity meaning the model is better at predicting true positives (fewer false positives), then the logit model is better for the higher threshold (0.6) and baseline threshold (0.5) than the probit model. However, when looking at the lower threshold (0.4), the probit and OLS models have a higher specificity. If researchers are looking for higher sensitivity, at the regular threshold, the OLS model is better than the logit and probit model. For the higher threshold, the OLS and probit model are the same, and thus both are better than the logit model. For the lower threshold, the logit model is better for sensitivity than the other two models. 
+
+
+To predict total weekly alcohol consumption, the best model is the OLS model (mod3) as it has the highest R squared and most of its coefficients are statistically significant compared to the instrumental models that were predicted. It also had the lowest value when comparing all the models with both the AIC and BIC test. When predicting if failures and higher could be a instrumental variable for G3, we found that though the R square was similar to the mod3 model, the variable G3 was not significant, making the model worse than the original OLS model. This was the case for the other instrumental variable hypotheses. 
+
+
+# 5. Future Work
+The data set and model that we selected did not present much success with instrumental variables. For future work, we can attempt all possible combinations of instrumental variables. Although this would take significant computational power, this could give better results. In addition, we can experiment with interaction terms and higher order terms for the OLS model. To accurately do this would require more advanced data science models, e.g. polynomial regressions, linear/cubic/smoothing splines, and general additive models. Given more time, we can look at the non-numerical variables by converting them and seeing if they have any effect on our models. We could also increase the number of observations by conducting more surveys. 
+
+For the future, we can attempt to find a data set is compatible with instrumental variables, though for this project we wanted to focus on probit/logit and instrumental variable models. This made it difficult to source a data set that was perfectly compatible with both models.
+
+
+# 6. References
+As mentioned, our data set came from https://www.kaggle.com/uciml/student-alcohol-consumption. 
+We referenced the website http://www.alexdeforge.com/phil-155-reasons-and-arguments to help with interpreting specificity and sensitivity. 
+
+
+
+
+
+
+
